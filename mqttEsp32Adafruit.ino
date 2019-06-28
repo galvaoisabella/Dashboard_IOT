@@ -1,3 +1,9 @@
+/***********************************************************************************/
+/*******PROJETO DE MONITORAMENTO IOT PARA A DISCIPLINA DE MICROCONTROLADORES********/
+/************************UNIVERSIDADE DE PERNAMBUCO*********************************/
+/***************************Data:28/06/2019*****************************************/
+/***********************************************************************************/
+
 /************************* Inclusão das Bibliotecas *********************************/
 #include <WiFi.h>
 #include <Adafruit_MQTT.h>
@@ -57,44 +63,83 @@ void setup() {
 }
 
 void loop() {
+  /* Chamando função que compila codigo remotamente */
   ArduinoOTA.handle();
   
+  /*Chamando função que conecta ao Adafruit*/
   conectar_broker();
+  
+  /*carregandos pacotes*/
   mqtt.processPackets(5000);
-  /* Funçoes de envio para o broker*/
+  
+  /* Chamando funçoes de envio de dados para o broker*/
   /* São necessários 2s de intervalo entre o envio/recebimento de dados para a contra FREE da Adafruit*/
   umidade_publish();
-  delay(2000);
   luminosidade_publish();
-  delay(2000);
   nivel_publish();
   delay(2000);
 }
 
+/* Função que inicia protocolo MQTT*/
 void initMQTT() {
   _led.setCallback(led_callback);
   mqtt.subscribe(&_led);
-
 }
 
+/* Função que conecta ao broker */
+void conectar_broker() {
+  int8_t ret;
+
+  if (mqtt.connected()) {
+    return;
+  }
+  Serial.println("Conectando - se ao CloudMQTT...");
+  uint8_t num_tentativas = 3;
+  while ((ret = mqtt.connect()) != 0) {
+    Serial.println(mqtt.connectErrorString(ret));
+    Serial.println("Falha. Tentando se reconectar em 1 segundos.");
+    mqtt.disconnect();
+    delay(1000);
+    num_tentativas--;
+  }
+}
+
+/************************** Função que recebe informações do Broker***********************************************/
+void led_callback(char *data, uint16_t len) {
+  String prinToSerial = data;
+
+  if (prinToSerial == "ON") {
+    digitalWrite(led, HIGH);
+  }
+  else
+  {
+    digitalWrite(led, LOW);
+  }
+
+  Serial.print("Servidor: ");
+  Serial.println(prinToSerial);
+  Serial.println("valor metodo");
+  Serial.println(prinToSerial.toInt());
+}
+
+/************************** Funções de envio de informações para o Broker***********************************************/
 void umidade_publish(void) {
-  int valor = map(analogRead(umidade), 4095, 0, 10, 100);
+  int valor = map(analogRead(umidade), 4095, 0, 10, 100); //traz a leitura do sensor para o range de 0 a 100
 
 Serial.print("\n valor umidade: ");
 Serial.print(valor);
  
-  if (!_umidade.publish(valor)) {
+  if (!_umidade.publish(valor)) {                         //Envia e verifica o recebimento do dado
     Serial.print(F("\n Falha ao enviar umidade!"));
   }
   else{
-    Serial.println(F("\n umidade enviado!"));
+    Serial.println(F("\n umidade enviado!"));             //Tratamento de erro
   }
-  delay(1000);
 }
 
 void luminosidade_publish(void) {
   int valor = analogRead(luminosidade);
-  char iconSun[] = "w:day-sunny";
+  char iconSun[] = "w:day-sunny";                         
   char iconCloud[] = "cloud";
 
 Serial.print("\n valor luminosidade: ");
@@ -139,42 +184,7 @@ void nivel_publish(void) {
   }
 }
 
-void led_callback(char *data, uint16_t len) {
-  String prinToSerial = data;
-
-  if (prinToSerial == "ON") {
-    digitalWrite(led, HIGH);
-  }
-  else
-  {
-    digitalWrite(led, LOW);
-  }
-
-  Serial.print("Servidor: ");
-  Serial.println(prinToSerial);
-  Serial.println("valor metodo");
-  Serial.println(prinToSerial.toInt());
-
-
-}
-
-void conectar_broker() {
-  int8_t ret;
-
-  if (mqtt.connected()) {
-    return;
-  }
-  Serial.println("Conectando - se ao CloudMQTT...");
-  uint8_t num_tentativas = 3;
-  while ((ret = mqtt.connect()) != 0) {
-    Serial.println(mqtt.connectErrorString(ret));
-    Serial.println("Falha. Tentando se reconectar em 1 segundos.");
-    mqtt.disconnect();
-    delay(1000);
-    num_tentativas--;
-  }
-}
-
+/***************************** Função que faz compilação por meio da rede Wi-Fi ************************************/
 void bootRemOtA(){
 //  Serial.println("Booting");
 //  WiFi.mode(WIFI_STA);
@@ -185,16 +195,16 @@ void bootRemOtA(){
 //    ESP.restart();
 //  }
 
-  // Port defaults to 3232
+  // Porta padrão 3232
    ArduinoOTA.setPort(3232);
 
-  // Hostname defaults to esp3232-[MAC]
+  // Hostname padrão esp3232-[MAC]
   ArduinoOTA.setHostname("myesp32");
 
-  // No authentication by default
   ArduinoOTA.setPassword("admin");
 
-  // Password can be set with it's md5 value as well
+  // A senha também pode ser definida por MD5
+  // Gerador de chave MD5: https://www.md5hashgenerator.com/
   //MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
   ArduinoOTA.setPasswordHash("dc7161be3dbf2250c8954e560cc35060");
 
